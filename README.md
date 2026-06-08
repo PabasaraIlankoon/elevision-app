@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # shop_security_app
 
 A new Flutter project.
@@ -15,3 +16,7 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
+=======
+# elephant-detection-IDP
+AI-based elephant detection and real-time early warning system for Sri Lankan railway tracks
+>>>>>>> 50fbc4deea5ac5dd3823ab6e6e54d43eff8b34b3

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 name: shop_security_app
 description: "Real-time security alert app for retail shops using YOLO detection and Firebase."
 publish_to: 'none'
@@ -60,3 +61,32 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icon.jpeg
+=======
+name: elephant_railway_alerts
+description: A polished Flutter prototype for real-time railway elephant alerts.
+publish_to: 'none'
+version: 0.1.0+1
+environment:
+  sdk: '>=3.5.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.5
+  flutter_map: ^4.0.0
+  latlong2: ^0.8.2
+  url_launcher: ^6.1.10
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+  flutter_launcher_icons: ^0.10.0
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/app_icon.png
+flutter_icons:
+  android: true
+  ios: true
+  image_path: assets/app_icon.png
+>>>>>>> 50fbc4deea5ac5dd3823ab6e6e54d43eff8b34b3
