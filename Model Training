@@ -1,0 +1,544 @@
+import os, sys, gc, json, yaml, warnings, subprocess, math
+from datetime import datetime
+from pathlib import Path
+from collections import defaultdict
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import torch
+
+warnings.filterwarnings('ignore')
+sns.set_style('whitegrid')
+plt.rcParams['figure.figsize'] = (16, 10)
+
+print('=' * 80)
+print('ELEPHANT DETECTION  -  YOLOV8 COMPLETE PIPELINE  (50 EPOCHS, ANTI-OVERFIT)')
+print('=' * 80)
+
+print('\n[1/8] Installing / verifying dependencies...')
+subprocess.check_call(
+    [sys.executable, '-m', 'pip', 'install', '-q',
+     'ultralytics', 'opencv-python', 'matplotlib', 'seaborn',
+     'scikit-learn', 'pillow', 'pyyaml', 'pandas', 'numpy'],
+    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+)
+print('      Dependencies ready.')
+
+from ultralytics import YOLO
+import cv2
+
+print('\n[2/8] GPU & system configuration:')
+print(f'      PyTorch  : {torch.__version__}')
+print(f'      CUDA     : {torch.cuda.is_available()}')
+
+if torch.cuda.is_available():
+    print(f'      GPU      : {torch.cuda.get_device_name(0)}')
+    print(f'      VRAM     : {torch.cuda.get_device_properties(0).total_memory / 1e9:.2f} GB')
+    torch.backends.cudnn.benchmark = True
+    if hasattr(torch.backends, 'cuda') and hasattr(torch.backends.cuda, 'matmul'):
+        torch.backends.cuda.matmul.allow_tf32 = True
+    DEVICE = 0
+    print('      GPU optimizations enabled.')
+else:
+    DEVICE = 'cpu'
+    print('      WARNING: CPU mode — training will be very slow.')
+
+SEED = 42
+torch.manual_seed(SEED)
+np.random.seed(SEED)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(SEED)
+print(f'      Seed     : {SEED}')
+
+print('\n[3/8] Setting up project paths...')
+try:
+    from google.colab import drive
+    drive.mount('/content/drive', force_remount=False)
+    DATASET_BASE = '/content/drive/MyDrive/elephant_detection_idp'
+    USE_DRIVE = True
+    print('      Google Drive mounted.')
+except Exception:
+    DATASET_BASE = '/content/elephant_detection'
+    USE_DRIVE = False
+    print('      Running outside Colab — using local path.')
+
+dirs = {
+    'dataset'    : os.path.join(DATASET_BASE, 'dataset'),
+    'models'     : os.path.join(DATASET_BASE, 'models'),
+    'runs'       : os.path.join(DATASET_BASE, 'runs'),
+    'checkpoints': os.path.join(DATASET_BASE, 'checkpoints'),
+    'plots'      : os.path.join(DATASET_BASE, 'plots'),
+    'results'    : os.path.join(DATASET_BASE, 'results'),
+}
+for p in dirs.values():
+    os.makedirs(p, exist_ok=True)
+
+DATASET_YAML = os.path.join(dirs['dataset'], 'data.yaml')
+if not os.path.exists(DATASET_YAML):
+    dataset_config = {
+        'path' : dirs['dataset'],
+        'train': 'images/train',
+        'val'  : 'images/val',
+        'test' : 'images/test',
+        'nc'   : 1,
+        'names': ['elephant'],
+    }
+    with open(DATASET_YAML, 'w', encoding='utf-8') as f:
+        yaml.safe_dump(dataset_config, f, sort_keys=False)
+    print(f'      Created data.yaml at {DATASET_YAML}')
+else:
+    print(f'      data.yaml found at {DATASET_YAML}')
+
+print(f'      Project base: {DATASET_BASE}')
+
+print('\n[4/8] Initializing checkpoint manager...')
+
+class CheckpointManager:
+    def __init__(self, checkpoint_dir):
+        self.checkpoint_dir = checkpoint_dir
+        self.metadata_file  = os.path.join(checkpoint_dir, 'training_metadata.json')
+        self._load()
+
+    def _load(self):
+        if os.path.exists(self.metadata_file):
+            with open(self.metadata_file, 'r', encoding='utf-8') as f:
+                self.metadata = json.load(f)
+        else:
+            self.metadata = {
+                'epochs_completed': 0,
+                'best_fitness'    : 0.0,
+                'training_count'  : 0,
+                'last_model'      : None,
+                'last_run_dir'    : None,
+            }
+
+    def save(self):
+        with open(self.metadata_file, 'w', encoding='utf-8') as f:
+            json.dump(self.metadata, f, indent=2)
+
+    def get_last_checkpoint(self):
+        """Return path to last.pt if a resumable checkpoint exists, else None."""
+        runs_dir = dirs['runs']
+        if not os.path.exists(runs_dir):
+            return None
+        runs = sorted(
+            [d for d in os.listdir(runs_dir) if d.startswith('elephant_')],
+            reverse=True
+        )
+        if not runs:
+            return None
+        last_pt = os.path.join(runs_dir, runs[0], 'weights', 'last.pt')
+        return last_pt if os.path.exists(last_pt) else None
+
+    def get_best_model(self):
+        """Return path to best.pt (falls back to last.pt) or None."""
+        runs_dir = dirs['runs']
+        if not os.path.exists(runs_dir):
+            return None
+        runs = sorted(
+            [d for d in os.listdir(runs_dir) if d.startswith('elephant_')],
+            reverse=True
+        )
+        if not runs:
+            return None
+        latest = os.path.join(runs_dir, runs[0])
+        best   = os.path.join(latest, 'weights', 'best.pt')
+        last   = os.path.join(latest, 'weights', 'last.pt')
+        if os.path.exists(best): return best
+        if os.path.exists(last): return last
+        return None
+
+    def print_status(self):
+        print(f"      Sessions completed : {self.metadata.get('training_count', 0)}")
+        print(f"      Epochs tracked     : {self.metadata.get('epochs_completed', 0)}")
+        print(f"      Best fitness       : {self.metadata.get('best_fitness', 0.0):.4f}")
+        lm = self.get_last_checkpoint()
+        if lm:
+            print(f"      Last checkpoint    : {os.path.basename(os.path.dirname(lm))}")
+        else:
+            print('      Last checkpoint    : None (fresh start)')
+
+checkpoint_mgr = CheckpointManager(dirs['checkpoints'])
+checkpoint_mgr.print_status()
+
+print('\n[5/8] Training configuration (50 epochs, anti-overfitting):')
+
+TRAIN_CONFIG = {
+  
+    'model'           : 'yolov8m.pt',            # medium model
+    'epochs'          : 50,
+    'imgsz'           : 640,
+    'batch_size'      : 16 if torch.cuda.is_available() else 4,
+    'device'          : DEVICE,
+
+
+    'optimizer'       : 'AdamW',
+    'lr0'             : 0.0008,                  # lower LR reduces overfit
+    'lrf'             : 0.01,
+    'momentum'        : 0.937,
+    'weight_decay'    : 0.001,                   # stronger L2 vs default 0.0005
+    'warmup_epochs'   : 3,
+    'warmup_momentum' : 0.8,
+
+  
+    'cos_lr'          : True,
+
+    'hsv_h'           : 0.015,
+    'hsv_s'           : 0.7,
+    'hsv_v'           : 0.4,
+    'degrees'         : 8.0,
+    'translate'       : 0.12,
+    'scale'           : 0.45,
+    'shear'           : 2.0,
+    'perspective'     : 0.0005,
+    'flipud'          : 0.2,
+    'fliplr'          : 0.5,
+    'mosaic'          : 0.7,                     # reduced from 1.0
+    'mixup'           : 0.15,                    # mix two images; fights overfit
+    'copy_paste'      : 0.1,                     # extra regularisation
+    'close_mosaic'    : 10,                      # disable mosaic for last 10 epochs
+
+    'patience'        : 12,                      # tight early stopping
+    'save_period'     : 5,
+    'amp'             : True,
+    'half'            : torch.cuda.is_available(),
+    'verbose'         : True,
+}
+
+for k, v in {
+    'Model'         : TRAIN_CONFIG['model'],
+    'Epochs'        : TRAIN_CONFIG['epochs'],
+    'Batch'         : TRAIN_CONFIG['batch_size'],
+    'Image size'    : TRAIN_CONFIG['imgsz'],
+    'Optimizer'     : TRAIN_CONFIG['optimizer'],
+    'LR'            : f"{TRAIN_CONFIG['lr0']} → {TRAIN_CONFIG['lrf']} (cosine)",
+    'Weight decay'  : TRAIN_CONFIG['weight_decay'],
+    'Patience'      : TRAIN_CONFIG['patience'],
+    'Mixup'         : TRAIN_CONFIG['mixup'],
+    'Copy-paste'    : TRAIN_CONFIG['copy_paste'],
+    'Close-mosaic'  : f"last {TRAIN_CONFIG['close_mosaic']} epochs",
+}.items():
+    print(f'      {k:<16}: {v}')
+
+
+print('\n[6/8] Training...')
+
+def run_training(config, resume=False):
+    """Run YOLO training. Returns (results, model) or (None, None)."""
+    print(f'\n      Start: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+    print(f'      Resume mode: {resume}')
+    try:
+        model = YOLO(config['model'])
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        results = model.train(
+            data             = DATASET_YAML,
+            epochs           = config['epochs'],
+            imgsz            = config['imgsz'],
+            batch            = config['batch_size'],
+            device           = config['device'],
+            optimizer        = config['optimizer'],
+            lr0              = config['lr0'],
+            lrf              = config['lrf'],
+            momentum         = config['momentum'],
+            weight_decay     = config['weight_decay'],
+            warmup_epochs    = config['warmup_epochs'],
+            warmup_momentum  = config['warmup_momentum'],
+            cos_lr           = config['cos_lr'],
+            patience         = config['patience'],
+            hsv_h            = config['hsv_h'],
+            hsv_s            = config['hsv_s'],
+            hsv_v            = config['hsv_v'],
+            degrees          = config['degrees'],
+            translate        = config['translate'],
+            scale            = config['scale'],
+            shear            = config['shear'],
+            perspective      = config['perspective'],
+            flipud           = config['flipud'],
+            fliplr           = config['fliplr'],
+            mosaic           = config['mosaic'],
+            mixup            = config['mixup'],
+            copy_paste       = config['copy_paste'],
+            close_mosaic     = config['close_mosaic'],
+            amp              = config['amp'],
+            half             = config['half'],
+            save             = True,
+            save_period      = config['save_period'],
+            project          = dirs['runs'],
+            name             = f"elephant_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            exist_ok         = True,
+            verbose          = config['verbose'],
+            resume           = resume,
+        )
+
+        print(f'\n      Training complete: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+        checkpoint_mgr.metadata['epochs_completed'] = config['epochs']
+        checkpoint_mgr.metadata['training_count']  += 1
+        lm = checkpoint_mgr.get_last_checkpoint()
+        checkpoint_mgr.metadata['last_model']    = lm
+        checkpoint_mgr.metadata['last_run_dir']  = os.path.dirname(os.path.dirname(lm)) if lm else None
+        checkpoint_mgr.save()
+        return results, model
+
+    except AssertionError as e:
+        if 'training' in str(e).lower() and 'finished' in str(e).lower():
+            print('      Previous run already finished — starting fresh.')
+            return run_training(config, resume=False)
+        print(f'      AssertionError: {e}')
+        return None, None
+
+    except RuntimeError as e:
+        if 'out of memory' in str(e).lower():
+            print('      GPU OOM — suggestions:')
+            print(f"        • batch {config['batch_size']} → 8")
+            print(f"        • imgsz {config['imgsz']} → 512")
+            print( '        • model yolov8s.pt')
+            print( '      Re-run this cell to auto-resume.')
+        else:
+            print(f'      RuntimeError: {e}')
+        return None, None
+
+    except KeyboardInterrupt:
+        print('      Training interrupted — re-run this cell to resume.')
+        return None, None
+
+    finally:
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+
+ckpt = checkpoint_mgr.get_last_checkpoint()
+should_resume = ckpt is not None
+if should_resume:
+    print(f'      Checkpoint found: {os.path.basename(os.path.dirname(ckpt))}')
+    print('      Resuming from last saved state...')
+else:
+    print('      No checkpoint found — starting fresh training.')
+
+train_results, trained_model = run_training(TRAIN_CONFIG, resume=should_resume)
+
+if train_results:
+    print('      Training session saved successfully.')
+else:
+    print('      WARNING: Training did not complete. Check messages above.')
+
+print('\n[7/8] Generating training visualizations...')
+
+def load_latest_results():
+    runs_dir = dirs['runs']
+    if not os.path.exists(runs_dir):
+        return None, None
+    runs = sorted(
+        [d for d in os.listdir(runs_dir) if d.startswith('elephant_')],
+        reverse=True
+    )
+    if not runs:
+        return None, None
+    latest_run  = os.path.join(runs_dir, runs[0])
+    results_csv = os.path.join(latest_run, 'results.csv')
+    if not os.path.exists(results_csv):
+        return None, None
+    df = pd.read_csv(results_csv)
+    df.columns = df.columns.str.strip()         # strip whitespace from column names
+    return df, latest_run
+
+
+def detect_overfitting(df):
+    """Return a human-readable overfitting diagnosis."""
+    lines = []
+    if 'train/box_loss' in df.columns and 'val/box_loss' in df.columns:
+        gap = float(df['val/box_loss'].iloc[-1]) - float(df['train/box_loss'].iloc[-1])
+        lines.append(f'  Box-loss gap (val - train): {gap:+.4f}')
+        if gap > 0.10:
+            lines.append('  >> OVERFIT LIKELY  — val loss much higher than train loss.')
+            lines.append('     Try: +weight_decay, +mixup, +copy_paste, yolov8s.pt, fewer epochs.')
+        elif gap > 0.05:
+            lines.append('  >> MILD OVERFIT — monitor closely.')
+        else:
+            lines.append('  >> No strong overfit signal from loss gap.')
+    return lines
+
+
+def plot_training_curves(df, save_dir):
+    fig = plt.figure(figsize=(22, 16))
+    fig.suptitle('Elephant Detection — Training Analysis (50 Epochs)', fontsize=16, fontweight='bold', y=1.01)
+
+    # Row 1: Losses
+    for col_idx, (train_col, val_col, title, color_t, color_v) in enumerate([
+        ('train/box_loss', 'val/box_loss', 'Box Loss',            'steelblue',   'tomato'),
+        ('train/cls_loss', 'val/cls_loss', 'Classification Loss', 'seagreen',    'orange'),
+        ('train/dfl_loss', 'val/dfl_loss', 'DFL Loss',            'mediumpurple','hotpink'),
+    ], start=1):
+        ax = plt.subplot(3, 3, col_idx)
+        if train_col in df.columns and val_col in df.columns:
+            ax.plot(df.index, df[train_col], color=color_t, linewidth=2, label='Train', alpha=0.85)
+            ax.plot(df.index, df[val_col],   color=color_v, linewidth=2, label='Val',   alpha=0.85)
+            ax.fill_between(df.index,
+                            df[train_col], df[val_col],
+                            alpha=0.10, color='grey', label='Gap (overfit indicator)')
+        ax.set_title(title, fontsize=13, fontweight='bold')
+        ax.set_xlabel('Epoch'); ax.set_ylabel('Loss')
+        ax.legend(fontsize=9); ax.grid(True, alpha=0.3)
+
+    # Row 2: Precision, Recall, F1
+    ax4 = plt.subplot(3, 3, 4)
+    if 'metrics/precision(B)' in df.columns:
+        ax4.plot(df.index, df['metrics/precision(B)'], color='seagreen', linewidth=2.2)
+        ax4.axhline(y=0.90, color='red',    linestyle='--', alpha=0.5, label='Target 0.90')
+        ax4.axhline(y=0.95, color='orange', linestyle='--', alpha=0.5, label='Caution 0.95 (overfit?)')
+    ax4.set_title('Precision', fontsize=13, fontweight='bold', color='seagreen')
+    ax4.set_ylim([0, 1.05]); ax4.grid(True, alpha=0.3); ax4.legend(fontsize=9)
+
+    ax5 = plt.subplot(3, 3, 5)
+    if 'metrics/recall(B)' in df.columns:
+        ax5.plot(df.index, df['metrics/recall(B)'], color='steelblue', linewidth=2.2)
+        ax5.axhline(y=0.85, color='red', linestyle='--', alpha=0.5, label='Target 0.85')
+    ax5.set_title('Recall', fontsize=13, fontweight='bold', color='steelblue')
+    ax5.set_ylim([0, 1.05]); ax5.grid(True, alpha=0.3); ax5.legend(fontsize=9)
+
+    ax6 = plt.subplot(3, 3, 6)
+    if 'metrics/precision(B)' in df.columns and 'metrics/recall(B)' in df.columns:
+        p  = df['metrics/precision(B)']
+        r  = df['metrics/recall(B)']
+        f1 = 2 * (p * r) / (p + r + 1e-7)
+        ax6.plot(df.index, f1, color='mediumpurple', linewidth=2.2)
+        ax6.axhline(y=0.87, color='red', linestyle='--', alpha=0.5, label='Target 0.87')
+    ax6.set_title('F1 Score', fontsize=13, fontweight='bold', color='mediumpurple')
+    ax6.set_ylim([0, 1.05]); ax6.grid(True, alpha=0.3); ax6.legend(fontsize=9)
+
+    # Row 3: mAP, Fitness, Summary
+    ax7 = plt.subplot(3, 3, 7)
+    if 'metrics/mAP50(B)' in df.columns:
+        ax7.plot(df.index, df['metrics/mAP50(B)'],    color='crimson',  linewidth=2.2, marker='d', markersize=3, label='mAP50')
+    if 'metrics/mAP50-95(B)' in df.columns:
+        ax7.plot(df.index, df['metrics/mAP50-95(B)'], color='darkorange', linewidth=2.2, marker='*', markersize=4, label='mAP50-95')
+    ax7.set_title('mAP Metrics', fontsize=13, fontweight='bold', color='crimson')
+    ax7.set_ylim([0, 1.05]); ax7.grid(True, alpha=0.3); ax7.legend(fontsize=9)
+
+    ax8 = plt.subplot(3, 3, 8)
+    if 'fitness' in df.columns:
+        ax8.fill_between(df.index, df['fitness'], alpha=0.25, color='cyan')
+        ax8.plot(df.index, df['fitness'], color='darkcyan', linewidth=2.8)
+        best_ep  = int(df['fitness'].idxmax())
+        best_fit = float(df['fitness'].max())
+        ax8.scatter([best_ep], [best_fit], c='red', s=150, marker='*', zorder=5,
+                    label=f'Best: {best_fit:.4f} @ ep {best_ep+1}')
+    ax8.set_title('Overall Fitness', fontsize=13, fontweight='bold')
+    ax8.grid(True, alpha=0.3); ax8.legend(fontsize=9)
+
+    ax9 = plt.subplot(3, 3, 9)
+    ax9.axis('off')
+    summary  = '─── TRAINING SUMMARY ───\n'
+    summary += f'Epochs: {len(df)}\n'
+    if 'metrics/mAP50(B)' in df.columns:
+        bme = int(df['metrics/mAP50(B)'].idxmax())
+        summary += f'mAP50  best : {df["metrics/mAP50(B)"].max():.4f}  (ep {bme+1})\n'
+        summary += f'mAP50  final: {df["metrics/mAP50(B)"].iloc[-1]:.4f}\n'
+    if 'metrics/mAP50-95(B)' in df.columns:
+        summary += f'mAP50-95   : {df["metrics/mAP50-95(B)"].iloc[-1]:.4f}\n'
+    if 'metrics/precision(B)' in df.columns:
+        summary += f'Precision  : {df["metrics/precision(B)"].iloc[-1]:.4f}\n'
+    if 'metrics/recall(B)' in df.columns:
+        summary += f'Recall     : {df["metrics/recall(B)"].iloc[-1]:.4f}\n'
+    if 'metrics/precision(B)' in df.columns and 'metrics/recall(B)' in df.columns:
+        p = float(df['metrics/precision(B)'].iloc[-1])
+        r = float(df['metrics/recall(B)'].iloc[-1])
+        summary += f'F1 (final) : {2*p*r/(p+r+1e-7):.4f}\n'
+    if 'train/box_loss' in df.columns and 'val/box_loss' in df.columns:
+        gap = float(df['val/box_loss'].iloc[-1]) - float(df['train/box_loss'].iloc[-1])
+        summary += f'Loss gap   : {gap:+.4f}'
+
+    ax9.text(0.07, 0.95, summary, va='top', fontsize=10.5, family='monospace',
+             transform=ax9.transAxes,
+             bbox=dict(boxstyle='round', facecolor='lightyellow', alpha=0.7))
+
+    plt.tight_layout()
+    save_path = os.path.join(save_dir, 'training_analysis_50ep.png')
+    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    plt.show()
+    print(f'      Plots saved → {save_path}')
+    return save_path
+
+
+results_df, latest_run = load_latest_results()
+
+if results_df is not None:
+    plot_training_curves(results_df, dirs['plots'])
+    print('\n      Overfitting diagnosis:')
+    for line in detect_overfitting(results_df):
+        print(line)
+else:
+    print('      No results.csv found — training may not have completed.')
+
+print('\n[8/8] Validation & retraining recommendations...')
+
+def validate_best_model():
+    model_path = checkpoint_mgr.get_best_model()
+    if not model_path:
+        print('      No trained model found.')
+        return None, None
+    print(f'      Loading: {os.path.basename(model_path)}')
+    val_model   = YOLO(model_path)
+    val_results = val_model.val(data=DATASET_YAML, batch=8)
+    print('\n      ── Validation Metrics ──')
+    print(f'         mAP50    : {val_results.box.map50:.4f}')
+    print(f'         mAP50-95 : {val_results.box.map:.4f}')
+    print(f'         Precision: {val_results.box.mp:.4f}')
+    print(f'         Recall   : {val_results.box.mr:.4f}')
+    return val_model, val_results
+
+
+validated_model, val_results = validate_best_model()
+
+# Smart retraining recommendations based on actual results
+print('\n      ── Retraining Recommendations ──')
+if results_df is not None and 'metrics/mAP50(B)' in results_df.columns:
+    m50   = float(results_df['metrics/mAP50(B)'].iloc[-1])
+    prec  = float(results_df['metrics/precision(B)'].iloc[-1]) if 'metrics/precision(B)' in results_df.columns else -1
+    rec   = float(results_df['metrics/recall(B)'].iloc[-1])    if 'metrics/recall(B)'    in results_df.columns else -1
+
+    print(f'         mAP50={m50:.4f}  P={prec:.4f}  R={rec:.4f}')
+
+    if m50 >= 0.85 and prec >= 0.88 and rec >= 0.85:
+        print('         STATUS: GOOD — model generalises well.')
+        print('         ACTION: Use this model for inference.')
+    elif m50 >= 0.75:
+        print('         STATUS: DECENT — a bit more training may help.')
+        print('         SUGGESTIONS:')
+        print('           • Continue 20-30 more epochs (re-run cell with epochs=70)')
+        print('           • Reduce lr0 → 0.0004 for finer convergence')
+        print('           • Add more diverse training images if available')
+    else:
+        print('         STATUS: LOW — model needs improvement.')
+        print('         SUGGESTIONS:')
+        print('           • Check dataset quality & label accuracy')
+        print('           • Try yolov8l.pt for more model capacity')
+        print('           • Increase epochs to 80; reduce close_mosaic to 8')
+
+    # Overfitting-specific advice
+    if results_df is not None and 'train/box_loss' in results_df.columns and 'val/box_loss' in results_df.columns:
+        gap = float(results_df['val/box_loss'].iloc[-1]) - float(results_df['train/box_loss'].iloc[-1])
+        if gap > 0.08:
+            print('\n         OVERFIT WARNING — consider these config tweaks:')
+            print("           TRAIN_CONFIG['weight_decay'] = 0.0015")
+            print("           TRAIN_CONFIG['mixup']        = 0.20")
+            print("           TRAIN_CONFIG['copy_paste']   = 0.15")
+            print("           TRAIN_CONFIG['mosaic']       = 0.6")
+            print("           TRAIN_CONFIG['model']        = 'yolov8s.pt'  # smaller model")
+            print('           Then re-run this cell.')
+else:
+    print('         No results to analyse — run training first.')
+
+print('\n' + '=' * 80)
+print('  PIPELINE COMPLETE')
+print('  Outputs:')
+print(f"    Trained model : {dirs['runs']}/elephant_*/weights/best.pt")
+print(f"    Training plots: {dirs['plots']}/training_analysis_50ep.png")
+print(f"    Metadata      : {dirs['checkpoints']}/training_metadata.json")
+print('  To test on new images → run Section 9 (Test Model on New Images)')
+print('=' * 80)
