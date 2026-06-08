@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "863719577998",
+    "project_id": "elevision-606a9",
+    "storage_bucket": "elevision-606a9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:863719577998:android:b71695865984bf4bf3ecdf",
+        "android_client_info": {
+          "package_name": "com.elevision.shop_security_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDeg98qTwZLWDetp2ZhoxT0OwC8R77PLYQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
