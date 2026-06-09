@@ -1,8 +1,3 @@
-"""
-Elevision Alert Testing Script for Raspberry Pi
-Use this to test Firebase connectivity and push notifications
-BEFORE integrating with your YOLO detection script
-"""
 
 import firebase_admin
 from firebase_admin import credentials, firestore, messaging, storage
