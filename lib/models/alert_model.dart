@@ -1,3 +1,5 @@
+import '../models/train_model.dart';
+
 class AlertModel {
   final String id;
   final DateTime timestamp;
@@ -39,4 +41,9 @@ class AlertModel {
   }
 
   String get confidencePercent => '${(confidence * 100).toStringAsFixed(0)}%';
+
+  // Get high-risk trains at this alert location
+  List<Map<String, dynamic>> getHighRiskTrainsAtLocation() {
+    return TrainData.getHighRiskTrainsAtLocation(locationName);
+  }
 }

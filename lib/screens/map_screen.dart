@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -22,36 +20,15 @@ class _MapTabState extends State<MapTab> {
   Position? _position;
   String? _errorText;
   bool _isLoading = true;
-  double _trainProgress = 0.0;
-  Timer? _trainTimer;
   bool _numberReady = false;
 
-  final List<LatLng> _routePoints = [
-    const LatLng(6.9319, 79.8478),
-    const LatLng(7.2906, 80.6337),
-    const LatLng(6.9497, 80.7890),
-    const LatLng(6.0320, 80.2165),
-  ];
-
-  final List<String> _stationLabels = [
-    'Colombo Fort',
-    'Kandy Station',
-    'Nuwara Eliya',
-    'Galle Line',
-  ];
+  final LatLng _defaultSriLankaCenter = const LatLng(7.8731, 80.7718);
 
   @override
   void initState() {
     super.initState();
     _loadLocation();
-    _startTrainSimulation();
     _prepareEmergencyNumber();
-  }
-
-  @override
-  void dispose() {
-    _trainTimer?.cancel();
-    super.dispose();
   }
 
   Future<void> _prepareEmergencyNumber() async {
@@ -70,44 +47,10 @@ class _MapTabState extends State<MapTab> {
         _position = position;
         _isLoading = false;
         if (position == null) {
-          _errorText =
-              'Location unavailable. Check your phone settings and grant permission.';
+          _errorText = 'Location unavailable. Check your phone settings and grant permission.';
         }
       });
     }
-  }
-
-  void _startTrainSimulation() {
-    _trainTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      setState(() {
-        _trainProgress += 0.08;
-        if (_trainProgress > 1.0) {
-          _trainProgress = 0.0;
-        }
-      });
-    });
-  }
-
-  LatLng get _defaultSriLankaCenter => const LatLng(7.8731, 80.7718);
-
-  LatLng get _trainPosition {
-    final totalSegments = _routePoints.length - 1;
-    final progress = (_trainProgress * totalSegments).clamp(0.0, totalSegments.toDouble());
-    final currentSegment = progress.floor();
-    final segmentFraction = progress - currentSegment;
-    if (currentSegment >= _routePoints.length - 1) {
-      return _routePoints.last;
-    }
-    final start = _routePoints[currentSegment];
-    final end = _routePoints[currentSegment + 1];
-    return LatLng(
-      start.latitude + (end.latitude - start.latitude) * segmentFraction,
-      start.longitude + (end.longitude - start.longitude) * segmentFraction,
-    );
-  }
-
-  int get _passedStations {
-    return (_trainProgress * (_stationLabels.length - 1)).floor().clamp(0, _stationLabels.length - 1);
   }
 
   Future<void> _callEmergency() async {
@@ -133,6 +76,76 @@ class _MapTabState extends State<MapTab> {
     return StreamBuilder<List<AlertModel>>(
       stream: FirestoreService().alertsStream,
       builder: (context, snapshot) {
+        // Handle Firestore permission errors
+        if (snapshot.hasError) {
+          final errorMessage = snapshot.error.toString();
+          final isPermissionError = errorMessage.contains('permission') || 
+                                   errorMessage.contains('permission-denied');
+          
+          return Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Sri Lanka Railway Zone Map',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEE2E2),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFFCA5A5)),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Icon(
+                            isPermissionError ? Icons.lock_outline : Icons.error_outline,
+                            color: const Color(0xFFDC2626),
+                            size: 48,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            isPermissionError 
+                              ? 'Firebase Permission Denied'
+                              : 'Error Loading Map',
+                            style: const TextStyle(
+                              color: Color(0xFFDC2626),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            isPermissionError
+                              ? 'Your Firestore database does not have read permissions configured. Please update your Firebase security rules to allow authenticated users to read alert data.'
+                              : 'Unable to load map data. Please check your Firebase connection.',
+                            style: const TextStyle(
+                              color: Color(0xFF7F1D1D),
+                              fontSize: 13,
+                              height: 1.6,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
         final alerts = snapshot.data ?? [];
         final activeAlert = alerts.isNotEmpty ? alerts.first : null;
         final alertLocation = activeAlert != null &&
@@ -140,6 +153,7 @@ class _MapTabState extends State<MapTab> {
                 activeAlert.longitude != null
             ? LatLng(activeAlert.latitude!, activeAlert.longitude!)
             : null;
+        
         final mapCenter = alertLocation ??
             (_position != null
                 ? LatLng(_position!.latitude, _position!.longitude)
@@ -151,7 +165,7 @@ class _MapTabState extends State<MapTab> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Sri Lanka Train Tracking',
+                'Sri Lanka Railway Zone Map',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
@@ -159,7 +173,7 @@ class _MapTabState extends State<MapTab> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Follow active trains on the rail network, see stations passed, and respond to alerts in real time.',
+                'View alert locations on the rail network and respond to incidents in real time.',
                 style: TextStyle(color: Color(0xFF6B7280)),
               ),
               if (_errorText != null) ...[
@@ -185,39 +199,8 @@ class _MapTabState extends State<MapTab> {
                         urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                         userAgentPackageName: 'com.elevision.shop_security_app',
                       ),
-                      PolylineLayer(
-                        polylines: [
-                          Polyline(
-                            points: _routePoints,
-                            color: const Color(0xFFFF8C00),
-                            strokeWidth: 4,
-                          ),
-                        ],
-                      ),
                       MarkerLayer(
                         markers: [
-                          ..._routePoints.map(
-                            (point) => Marker(
-                              width: 34,
-                              height: 34,
-                              point: point,
-                              builder: (_) => const Icon(
-                                Icons.location_on,
-                                color: Color(0xFF1E3A8A),
-                                size: 26,
-                              ),
-                            ),
-                          ),
-                          Marker(
-                            width: 48,
-                            height: 48,
-                            point: _trainPosition,
-                            builder: (_) => const Icon(
-                              Icons.train,
-                              color: Color(0xFFDC2626),
-                              size: 34,
-                            ),
-                          ),
                           if (_position != null)
                             Marker(
                               width: 40,
@@ -231,13 +214,13 @@ class _MapTabState extends State<MapTab> {
                             ),
                           if (alertLocation != null)
                             Marker(
-                              width: 40,
-                              height: 40,
+                              width: 48,
+                              height: 48,
                               point: alertLocation,
                               builder: (_) => const Icon(
                                 Icons.warning_amber_rounded,
                                 color: Color(0xFFFFA726),
-                                size: 34,
+                                size: 36,
                               ),
                             ),
                         ],
@@ -266,94 +249,64 @@ class _MapTabState extends State<MapTab> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Train Progress',
+                      'Map Information',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Current route: Colombo Fort → Kandy Station → Nuwara Eliya → Galle Line',
-                      style: const TextStyle(color: Color(0xFF6B7280)),
-                    ),
                     const SizedBox(height: 12),
-                    LinearProgressIndicator(
-                      value: _trainProgress,
-                      color: const Color(0xFF1E3A8A),
-                      backgroundColor: const Color(0xFFE5E7EB),
-                      minHeight: 8,
-                    ),
-                    const SizedBox(height: 14),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Next station: ${_stationLabels[(_passedStations + 1).clamp(0, _stationLabels.length - 1)]}',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                    if (_position != null) ...[
+                      Text(
+                        'Your Location',
+                        style: const TextStyle(
+                          color: Color(0xFF475569),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
                         ),
-                        Text(
-                          '${(_trainProgress * 100).round()}% complete',
-                          style: const TextStyle(color: Color(0xFF6B7280)),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Lat: ${_position!.latitude.toStringAsFixed(4)}, Lon: ${_position!.longitude.toStringAsFixed(4)}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: _stationLabels.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final label = entry.value;
-                        final passed = index <= _passedStations;
-                        return Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
-                          decoration: BoxDecoration(
-                            color: passed ? const Color(0xFFE0F2FE) : const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: passed ? const Color(0xFF0EA5E9) : const Color(0xFFCBD5E1),
-                            ),
-                          ),
-                          child: Text(
-                            label,
-                            style: TextStyle(
-                              color: passed ? const Color(0xFF0369A1) : const Color(0xFF475569),
-                              fontWeight: passed ? FontWeight.w700 : FontWeight.w500,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (activeAlert != null) ...[
+                      Text(
+                        'Active Alert Location',
+                        style: const TextStyle(
+                          color: Color(0xFFFFA726),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        activeAlert.locationName ?? 'Gal Oya Railway Crossing',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Lat: ${activeAlert.latitude?.toStringAsFixed(4) ?? "N/A"}, Lon: ${activeAlert.longitude?.toStringAsFixed(4) ?? "N/A"}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                    ] else
+                      const Text(
+                        'No active alerts at the moment.',
+                        style: TextStyle(color: Color(0xFF6B7280)),
+                      ),
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
-              if (activeAlert != null)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF7ED),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFFCC9A6)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.warning_amber, color: Color(0xFFE67719)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Active alert at ${activeAlert.locationName ?? 'Gal Oya'}',
-                          style: const TextStyle(
-                            color: Color(0xFF9A3412),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               const SizedBox(height: 14),
               Row(
                 children: [
@@ -374,15 +327,15 @@ class _MapTabState extends State<MapTab> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () {
-                        if (activeAlert != null) {
+                        if (alerts.isNotEmpty) {
                           Navigator.push(
                             context,
                             MaterialPageRoute(builder: (_) => const AlertsScreen()),
                           );
                         }
                       },
-                      icon: const Icon(Icons.map_outlined, color: Color(0xFF1E3A8A)),
-                      label: const Text('View Alert'),
+                      icon: const Icon(Icons.list_alt_outlined, color: Color(0xFF1E3A8A)),
+                      label: const Text('View Alerts'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFF1E3A8A),
                         side: const BorderSide(color: Color(0xFF1E3A8A)),

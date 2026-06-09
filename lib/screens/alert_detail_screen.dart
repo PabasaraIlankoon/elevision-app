@@ -100,7 +100,7 @@ class AlertDetailScreen extends StatelessWidget {
                       Icon(Icons.warning_amber, color: Color(0xFFD97706), size: 20),
                       SizedBox(width: 8),
                       Text(
-                        'Intrusion Alert',
+                        'Elephant Alert',
                         style: TextStyle(
                           color: Color(0xFF78350F),
                           fontWeight: FontWeight.bold,
@@ -111,7 +111,7 @@ class AlertDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   const Text(
-                    'A person was detected in your shop. Review the image above and take appropriate action.',
+                    'Elephant Detected',
                     style: TextStyle(
                       color: Color(0xFF92400E),
                       fontSize: 13,

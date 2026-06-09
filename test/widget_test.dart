@@ -6,11 +6,11 @@
 // tree, read text, and verify that the values of widget properties are correct.
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shop_security_app/main.dart';
+import 'package:elevision/main.dart';
 
 void main() {
   testWidgets('App loads and shows Elevision brand', (WidgetTester tester) async {
-    await tester.pumpWidget(const ElevisionApp());
+    await tester.pumpWidget(const MyApp());
     await tester.pumpAndSettle();
 
     expect(find.text('Elevision'), findsWidgets);

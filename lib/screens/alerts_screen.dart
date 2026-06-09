@@ -35,31 +35,61 @@ class AlertsContent extends StatelessWidget {
         }
 
         if (snapshot.hasError) {
+          final errorMessage = snapshot.error.toString();
+          final isPermissionError = errorMessage.contains('permission') || 
+                                   errorMessage.contains('permission-denied') ||
+                                   errorMessage.contains('PERMISSION_DENIED');
+          
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  Icons.error_outline,
+                  isPermissionError ? Icons.lock_outline : Icons.error_outline,
                   size: 48,
-                  color: const Color(0x99DC2626),
+                  color: const Color(0xFFDC2626),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Error loading alerts',
-                  style: TextStyle(
+                Text(
+                  isPermissionError ? 'Permission Denied' : 'Error loading alerts',
+                  style: const TextStyle(
                     color: Color(0xFFDC2626),
                     fontSize: 16,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  snapshot.error.toString(),
-                  style: const TextStyle(
-                    color: Color(0xFF6B7280),
-                    fontSize: 12,
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: Text(
+                    isPermissionError 
+                      ? 'Your Firebase database does not have proper read permissions configured.\n\nPlease update your Firestore Security Rules to allow reading from your user.\n\nExample rule:\nallow read if request.auth.uid != null;'
+                      : errorMessage,
+                    style: const TextStyle(
+                      color: Color(0xFF6B7280),
+                      fontSize: 13,
+                      height: 1.6,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'To fix this:\n1. Go to Firebase Console\n2. Open Firestore Database\n3. Go to Rules tab\n4. Set rules to allow read/write for authenticated users\n5. Publish rules',
+                        ),
+                        duration: Duration(seconds: 5),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.help_outline),
+                  label: const Text('Learn More'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E3A8A),
+                  ),
                 ),
               ],
             ),
@@ -244,25 +274,44 @@ class _AlertCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: alert.confidence > 0.8
-                            ? const Color(0xFFFEE2E2)
-                            : const Color(0xFFFEF3C7),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        'Confidence: ${alert.confidencePercent}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: alert.confidence > 0.8
-                              ? const Color(0xFFDC2626)
-                              : const Color(0xFF92400E),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: alert.confidence > 0.8
+                                ? const Color(0xFFFEE2E2)
+                                : const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            'Confidence: ${alert.confidencePercent}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: alert.confidence > 0.8
+                                  ? const Color(0xFFDC2626)
+                                  : const Color(0xFF92400E),
+                            ),
+                          ),
+                        ),
+                        _HighRiskTrainBadge(alert: alert),
+                      ],
+                    ),
+                    if (alert.locationName != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          'Location: ${alert.locationName}',
+                          style: const TextStyle(
+                            color: Color(0xFF6B7280),
+                            fontSize: 12,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -273,6 +322,61 @@ class _AlertCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _HighRiskTrainBadge extends StatelessWidget {
+  final AlertModel alert;
+
+  const _HighRiskTrainBadge({required this.alert});
+
+  @override
+  Widget build(BuildContext context) {
+    final highRiskTrains = alert.getHighRiskTrainsAtLocation();
+    
+    if (highRiskTrains.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final closestTrain = highRiskTrains.first;
+    final trainData = closestTrain['train'];
+    final minutesAway = closestTrain['minutesAway'] as int;
+    final status = minutesAway < 0 
+                ? 'Passed'
+        : minutesAway == 0 
+            ? 'NOW!'
+            : minutesAway < 60 ? 'In ${minutesAway}m' : 'Later';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: BoxDecoration(
+        color: trainData.riskColor.withOpacity(0.15),
+        border: Border.all(color: trainData.riskColor.withOpacity(0.5)),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '🚂 #${trainData.trainNumber}',
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              color: trainData.riskColor,
+            ),
+          ),
+          Text(
+            status,
+            style: TextStyle(
+              fontSize: 8,
+              color: trainData.riskColor,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }

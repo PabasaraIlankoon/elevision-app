@@ -6,20 +6,22 @@ class FirestoreService {
 
   // Real-time alert stream - updates instantly when Pi sends alerts
   Stream<List<AlertModel>> get alertsStream {
-    return _db
-        .collection('alerts')
-        .orderBy('timestampMs', descending: true)
-        .limit(50)
-        .snapshots()
-        .map((snapshot) {
-          return snapshot.docs.map((doc) {
-            return AlertModel.fromFirestore(
-              doc.data(),
-              doc.id,
-            );
-          }).toList();
-        });
-  }
+  return _db
+      .collection('alerts')
+      .orderBy('timestampMs', descending: true)
+      .limit(50)
+      .snapshots()
+      .handleError((error) {
+        print('FIRESTORE ERROR: $error');  
+      })
+      .map((snapshot) {
+        print('FIRESTORE: got ${snapshot.docs.length} documents'); 
+        return snapshot.docs.map((doc) {
+          print('DOC: ${doc.id} → ${doc.data()}'); 
+          return AlertModel.fromFirestore(doc.data(), doc.id);
+        }).toList();
+      });
+}
 
   // Real-time system status stream
   Stream<bool> get systemArmedStream {
