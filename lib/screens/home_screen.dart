@@ -8,6 +8,7 @@ import '../models/alert_model.dart';
 import '../services/firestore_service.dart';
 import '../services/auth_service.dart';
 import '../services/settings_service.dart';
+import '../services/language_service.dart';
 import 'alerts_screen.dart';
 import 'map_screen.dart';
 import 'alert_history_screen.dart';
@@ -114,11 +115,11 @@ class DashboardTab extends StatelessWidget {
     final List<Map<String, String>> trainStatus = [
       {
         'title': 'RW-001',
-        'status': 'Online',
+        'status': 'online',
       },
       {
         'title': 'RW-002',
-        'status': 'Online',
+        'status': 'offline',
       },
       {
         'title': 'RW-003',
@@ -618,7 +619,6 @@ class SettingsTab extends StatefulWidget {
 class _SettingsTabState extends State<SettingsTab> {
   final TextEditingController _emergencyController =
       TextEditingController();
-  String _selectedLanguage = 'en'; // 'en' or 'si'
 
   @override
   void initState() {
@@ -629,13 +629,7 @@ class _SettingsTabState extends State<SettingsTab> {
   Future<void> _loadSettings() async {
     final savedNumber =
         await SettingsService.loadEmergencyNumber();
-    final savedLanguage = await SettingsService.loadLanguage();
     _emergencyController.text = savedNumber;
-    if (mounted) {
-      setState(() {
-        _selectedLanguage = savedLanguage;
-      });
-    }
   }
 
   @override
@@ -738,36 +732,98 @@ class _SettingsTabState extends State<SettingsTab> {
             ),
             const SizedBox(height: 16),
             // Language Settings Section
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Language',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
+            Consumer<LanguageService>(
+              builder: (context, lang, _) {
+                return Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: _buildLanguageOption(
-                              'English', 'en'),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _buildLanguageOption(
-                              'සිංහල', 'si'),
+                        const Text('Language / භාෂාව',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w700, fontSize: 14)),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => lang.setLanguage('en'),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 12),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: lang.language == 'en'
+                                          ? const Color(0xFF1E3A8A)
+                                          : Colors.grey.shade300,
+                                      width: lang.language == 'en' ? 2 : 1,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Text('English',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: lang.language == 'en'
+                                                ? const Color(0xFF1E3A8A)
+                                                : Colors.black,
+                                          )),
+                                      Text('English',
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              color: lang.language == 'en'
+                                                  ? const Color(0xFF1E3A8A)
+                                                  : Colors.grey)),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => lang.setLanguage('si'),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 12),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: lang.language == 'si'
+                                          ? const Color(0xFF1E3A8A)
+                                          : Colors.grey.shade300,
+                                      width: lang.language == 'si' ? 2 : 1,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Text('සිංහල',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: lang.language == 'si'
+                                                ? const Color(0xFF1E3A8A)
+                                                : Colors.black,
+                                          )),
+                                      Text('Sinhala',
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              color: lang.language == 'si'
+                                                  ? const Color(0xFF1E3A8A)
+                                                  : Colors.grey)),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 16),
             // About Section
@@ -893,57 +949,6 @@ class _SettingsTabState extends State<SettingsTab> {
               ),
             ),
             const SizedBox(height: 16),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLanguageOption(String label, String code) {
-    final isSelected = _selectedLanguage == code;
-    return GestureDetector(
-      onTap: () async {
-        await SettingsService.saveLanguage(code);
-        setState(() {
-          _selectedLanguage = code;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? const Color(0xFF1E40AF).withOpacity(0.1)
-              : const Color(0xFFF3F4F6),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isSelected
-                ? const Color(0xFF1E40AF)
-                : const Color(0xFFE5E7EB),
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Column(
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-                color: isSelected
-                    ? const Color(0xFF1E40AF)
-                    : Colors.black,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              code == 'en' ? 'English' : 'Sinhala',
-              style: TextStyle(
-                fontSize: 11,
-                color: isSelected
-                    ? const Color(0xFF1E40AF)
-                    : const Color(0xFF6B7280),
-              ),
-            ),
           ],
         ),
       ),

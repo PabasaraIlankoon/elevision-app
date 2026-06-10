@@ -10,6 +10,8 @@ class AlertModel {
   final String? locationName;
   final double? latitude;
   final double? longitude;
+  final String? trainNumber;
+  final String? trainName;
 
   AlertModel({
     required this.id,
@@ -21,6 +23,8 @@ class AlertModel {
     this.locationName,
     this.latitude,
     this.longitude,
+    this.trainNumber,
+    this.trainName,
   });
 
   // Convert Firestore document to AlertModel object
@@ -37,6 +41,8 @@ class AlertModel {
       locationName: data['locationName'] as String?,
       latitude: data['latitude'] != null ? (data['latitude'] as num).toDouble() : null,
       longitude: data['longitude'] != null ? (data['longitude'] as num).toDouble() : null,
+      trainNumber: data['trainNumber'] as String?,
+      trainName: data['trainName'] as String?,
     );
   }
 

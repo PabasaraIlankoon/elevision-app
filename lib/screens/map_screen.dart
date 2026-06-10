@@ -23,6 +23,7 @@ class _MapTabState extends State<MapTab> {
   bool _numberReady = false;
 
   final LatLng _defaultSriLankaCenter = const LatLng(7.8731, 80.7718);
+  final LatLng _rw001Location = const LatLng(8.145667, 80.847250);
 
   @override
   void initState() {
@@ -65,6 +66,23 @@ class _MapTabState extends State<MapTab> {
         );
       }
     }
+  }
+
+  void _showDeviceInfo(String deviceId, String name) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Device: $deviceId', style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(name),
+          ],
+        ),
+        duration: const Duration(seconds: 3),
+        backgroundColor: const Color(0xFF1E40AF),
+      ),
+    );
   }
 
   @override
@@ -201,6 +219,20 @@ class _MapTabState extends State<MapTab> {
                       ),
                       MarkerLayer(
                         markers: [
+                          // RW-001 Device Location
+                          Marker(
+                            width: 40,
+                            height: 40,
+                            point: _rw001Location,
+                            builder: (_) => GestureDetector(
+                              onTap: () => _showDeviceInfo('RW-001', 'Galoya Junction'),
+                              child: Icon(
+                                Icons.location_on,
+                                color: const Color(0xFF1E40AF),
+                                size: 40,
+                              ),
+                            ),
+                          ),
                           if (_position != null)
                             Marker(
                               width: 40,
