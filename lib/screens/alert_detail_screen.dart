@@ -31,7 +31,7 @@ class AlertDetailScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
 
-            // ── Detection Image ──────────────────────────────────
+            //  Detection Image 
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: SizedBox(
@@ -65,7 +65,7 @@ class AlertDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // ── Elephant Alert banner ────────────────────────────
+            // Elephant Alert banner
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(14),
@@ -97,7 +97,7 @@ class AlertDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // ── Detection Details ────────────────────────────────
+            //  Detection Details 
             const Text('Detection Details',
                 style: TextStyle(
                     fontSize: 16, fontWeight: FontWeight.bold)),
@@ -140,7 +140,7 @@ class AlertDetailScreen extends StatelessWidget {
                     : alert.id),
             const SizedBox(height: 16),
 
-            // ── ZOOMED MAP of detection location ────────────────
+            //  ZOOMED MAP of detection location
             if (alert.latitude != null && alert.longitude != null) ...[
               const Text('Detection Location',
                   style: TextStyle(
@@ -199,11 +199,11 @@ class AlertDetailScreen extends StatelessWidget {
               const SizedBox(height: 16),
             ],
 
-            // ── Nearest High-Risk Train at Alert Time ────────────
+            //  Nearest High-Risk Train at Alert Time 
             ..._buildNearestHighRiskTrain(),
             const SizedBox(height: 16),
 
-            // ── Train Risk Section ───────────────────────────────
+            //  Train Risk Section 
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(14),
@@ -317,7 +317,7 @@ class AlertDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // ── Confidence info ──────────────────────────────────
+            //  Confidence info 
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
@@ -356,7 +356,7 @@ class AlertDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // ── Action buttons ───────────────────────────────────
+            //  Action buttons 
             SizedBox(
               width: double.infinity,
               height: 48,
