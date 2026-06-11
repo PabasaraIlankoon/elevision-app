@@ -574,18 +574,18 @@ elevision/
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                    TECHNOLOGY STACK                           │
+│                    TECHNOLOGY STACK                          │
 ├────────────────────┬─────────────────────────────────────────┤
-│ Layer              │ Technology                               │
-├────────────────────┼─────────────────────────────────────────┤
-│ Mobile App         │ Flutter 3.x (Dart)                      │
+│ Layer              │ Technology                              │
+├────────────────────┼───────────────────────────────────────── ┤
+│ Mobile App         │ Flutter 3.x (Dart)                       │
 │ State Management   │ Provider + ChangeNotifier                │
 │ Maps               │ flutter_map + OpenStreetMap              │
 │ Push Notifications │ Firebase Cloud Messaging (FCM)           │
 │ Real-time Database │ Cloud Firestore                          │
 │ Image Storage      │ Firebase Storage                         │
 │ Authentication     │ Firebase Auth (Email/Password)           │
-│ AI/ML Model        │ YOLOv8 Nano (Ultralytics)               │
+│ AI/ML Model        │ YOLOv8 Nano (Ultralytics)                │
 │ Computer Vision    │ OpenCV (cv2)                             │
 │ Edge Hardware      │ Raspberry Pi 4 (4GB RAM)                 │
 │ Camera             │ ELP 2MP USB Night Vision                 │
@@ -670,6 +670,5 @@ furnished to do so.
 
 🐘 *"Every elephant saved is a victory for conservation"* 🐘
 
-[![GitHub Stars](https://img.shields.io/github/stars/YOUR_USERNAME/elevision?style=social)](https://github.com/YOUR_USERNAME/elevision)
 
 </div>
