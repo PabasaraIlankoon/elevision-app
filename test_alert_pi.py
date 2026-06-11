@@ -6,13 +6,13 @@ import datetime
 import uuid
 import sys
 
-# ===== CONFIGURATION =====
+# CONFIGURATION 
 # Get these values from your Firebase Console
 FIREBASE_KEY_PATH = '/home/pi/firebase-key.json'
 STORAGE_BUCKET = 'elevision-606a9.appspot.com'  # Replace with your bucket
 PROJECT_ID = 'elevision-606a9'  # Replace with your project ID
 
-# ===== INITIALIZE FIREBASE =====
+#  INITIALIZE FIREBASE
 try:
     cred = credentials.Certificate(FIREBASE_KEY_PATH)
     firebase_admin.initialize_app(cred, {
@@ -26,7 +26,7 @@ except Exception as e:
     print(f"  Make sure {FIREBASE_KEY_PATH} exists")
     sys.exit(1)
 
-# ===== FUNCTIONS =====
+#  FUNCTIONS 
 
 def get_fcm_token():
     """Retrieve the device FCM token from Firestore"""
@@ -175,7 +175,7 @@ def send_real_alert(image_path, confidence, fcm_token):
         print(f'Failed to send alert: {e}')
         return False
 
-# ===== MAIN =====
+#  MAIN 
 if __name__ == '__main__':
     print("=" * 50)
     print("Elevision Test Alert System")
