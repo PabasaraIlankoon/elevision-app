@@ -23,7 +23,7 @@
 <p align="center">
 <b>Elevision</b> is a full-stack IoT + AI + Cloud system that protects Sri Lankan railways from elephant collisions.
 When an elephant is detected near the tracks, the system instantly alerts railway operators, identifies which trains
-are at risk based on live schedules, and triggers emergency protocols — all within seconds.
+are at risk based on live schedules, and triggers emergency protocols - all within seconds.
 </p>
 
 <div align="center">
@@ -54,9 +54,9 @@ are at risk based on live schedules, and triggers emergency protocols — all wi
 
 ## 🌟 Overview
 
-Elevision is a full-stack IoT + AI + Cloud system that protects Sri Lankan railways from elephant collisions. When an elephant is detected near the tracks, the system instantly alerts railway operators, identifies which trains are at risk based on live schedules, and triggers emergency protocols — all within seconds.
+Elevision is a full-stack IoT + AI + Cloud system that protects Sri Lankan railways from elephant collisions. When an elephant is detected near the tracks, the system instantly alerts railway operators, identifies which trains are at risk based on live schedules, and triggers emergency protocols - all within seconds.
 
-> **Impact:** Sri Lanka loses 5–10 elephants per year to train collisions. Elevision provides the real-time intelligence layer that can prevent these tragedies.
+> **Impact:** Sri Lanka loses 5-10 elephants per year to train collisions. Elevision provides the real-time intelligence layer that can prevent these tragedies.
 
 ## 🎯 Problem Statement
 
@@ -65,8 +65,8 @@ Elevision is a full-stack IoT + AI + Cloud system that protects Sri Lankan railw
 Sri Lanka's railway network passes through critical elephant habitats including:
 
 - Gal Oya National Park corridor
-- Minneriya–Kaudulla elephant gathering zones
-- Habarana–Polonnaruwa high-traffic elephant crossing
+- Minneriya-Kaudulla elephant gathering zones
+- Habarana-Polonnaruwa high-traffic elephant crossing
 
 **Current challenges:**
 
@@ -75,7 +75,7 @@ Sri Lanka's railway network passes through critical elephant habitats including:
 | No real-time wildlife detection | Drivers have zero warning |
 | Night-time blind spots | 70% of collisions happen at night |
 | No train–wildlife correlation | Cannot identify which train is at risk |
-| Delayed human reporting | Average 15–30 min response time |
+| Delayed human reporting | Average 15-30 min response time |
 | Remote locations, poor connectivity | No reliable communication backup |
 
 <img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/rainbow.gif" width="100%">
@@ -85,7 +85,7 @@ Sri Lanka's railway network passes through critical elephant habitats including:
 ### 🤖 AI Detection
 - YOLOv8 Nano model optimised for Raspberry Pi
 - Detects elephants with >90% average confidence
-- Processes 1 frame/second — optimised for Pi thermal limits
+- Processes 1 frame/second - optimised for Pi thermal limits
 - Filters false positives with a 2-frame consecutive detection rule
 
 ### 📱 Mobile App (Flutter)
@@ -97,10 +97,10 @@ Sri Lanka's railway network passes through critical elephant habitats including:
 - Zoomed map view inside each alert detail
 - Emergency SOS call button (dials railway emergency line)
 - English / Sinhala language switching (persisted to device)
-- Offline-capable — cached alerts available without internet
+- Offline-capable - cached alerts available without internet
 
 ### ☁️ Cloud (Firebase)
-- Firestore real-time database — no polling required
+- Firestore real-time database - no polling required
 - Firebase Storage for alert images
 - FCM push notifications with high-priority Android channel
 - Automatic token refresh and multi-device support
@@ -109,7 +109,7 @@ Sri Lanka's railway network passes through critical elephant habitats including:
 - 5 high-risk trains pre-loaded with full stop schedules
 - Automatically calculates which trains are within 60 minutes of an alert location
 - Colour-coded risk levels: Very High 🔴 / High 🟠 / Medium 🟡
-- Updates live as time passes — *"In 23 min" → "In 5 min" → "Passed"*
+- Updates live as time passes - *"In 23 min" → "In 5 min" → "Passed"*
 
 <img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/rainbow.gif" width="100%">
 
@@ -172,7 +172,7 @@ flowchart LR
 flowchart TD
     A["📷 Camera captures<br/>frame / sec"] --> B{"🤖 Elephant<br/>detected?"}
     B -- "No" --> A
-    B -- "Yes — 2 consecutive frames" --> C["📸 Capture & Save Image"]
+    B -- "Yes - 2 consecutive frames" --> C["📸 Capture & Save Image"]
     C --> D[("☁️ Upload to<br/>Firebase Storage")]
     D --> E["🔗 Get Image URL"]
     E --> F[("🗄️ Create Firestore Document<br/>alerts/{id}")]
@@ -183,7 +183,7 @@ flowchart TD
     F --> K["🚂 Train Risk Engine Checks Schedule"]
     K --> L{"⚠️ Train within<br/>60 min?"}
     L -- "Yes" --> M["🔴 IMMEDIATE ACTION REQUIRED"]
-    L -- "No" --> N["🟡 Monitor — Train Far Away"]
+    L -- "No" --> N["🟡 Monitor - Train Far Away"]
 
     classDef capture fill:#1a936f,stroke:#114b5f,color:#fff,stroke-width:2px
     classDef cloud fill:#3a86ff,stroke:#1b4965,color:#fff,stroke-width:2px
@@ -206,7 +206,7 @@ flowchart TD
 
 ```mermaid
 flowchart TB
-    subgraph PI4["🖥️ Raspberry Pi 4 — 4GB RAM"]
+    subgraph PI4["🖥️ Raspberry Pi 4 - 4GB RAM"]
         direction LR
         GPIO14["GPIO 14 (TX)"]
         GPIO15["GPIO 15 (RX)"]
@@ -260,7 +260,7 @@ flowchart TB
 ```mermaid
 flowchart TD
     START(["📷 Camera Frame<br/>Every 1 Second"]) --> CAP["cv2.VideoCapture(0)<br/>frame = camera.read()"]
-    CAP --> MODEL["🧠 YOLOv8 Nano Model<br/>results = model(frame) — ~0.3s"]
+    CAP --> MODEL["🧠 YOLOv8 Nano Model<br/>results = model(frame) - ~0.3s"]
     MODEL --> CHECK{"Elephant detected?<br/>confidence > 0.60?"}
     CHECK -- "No" --> WAIT["⏳ Continue Loop<br/>sleep 1 sec"]
     WAIT --> CAP
@@ -321,13 +321,13 @@ flowchart LR
     end
 
     subgraph SYSTEM["📂 system/"]
-        S1["status/ — armed, updatedAt, updatedBy"]
-        S2["device_tokens/ — fcmToken"]
-        S3["devices/ — lat, lng, name, status"]
+        S1["status/ - armed, updatedAt, updatedBy"]
+        S2["device_tokens/ - fcmToken"]
+        S3["devices/ - lat, lng, name, status"]
     end
 
     subgraph USERS["📂 users/"]
-        U1["{uid}/ — email"]
+        U1["{uid}/ - email"]
     end
 
     PROJECT --> ALERTS
@@ -377,7 +377,7 @@ flowchart LR
 </td>
 <td align="center" width="25%">
 <img src="assets/alert-detail-screen-2.jpeg" width="170"><br>
-<sub><b>Alert Details — Map</b><br>Zoomed location view</sub>
+<sub><b>Alert Details - Map</b><br>Zoomed location view</sub>
 </td>
 <td align="center" width="25%">
 <img src="assets/analytics-screen.jpeg" width="170"><br>
@@ -410,10 +410,10 @@ When an alert fires at "Palugaswewa Railway Section" with current time 11:32 PM:
 | Train | Arrives at Palugaswewa | Time Now | Risk |
 |---|---|---|---|
 | 6080 Meenagaya | 11:55 PM | 11:32 PM | **In 23 min** |
-| 6075 Pulathisi | (no stop here) | — | — |
+| 6075 Pulathisi | (no stop here) | - | - |
 | 6076 Pulathisi | 05:10 AM | 11:32 PM | Later |
 
-Result displayed in app: 🔴 **Train #6080 Meenagaya — In 23 min ⚠️ IMMEDIATE RISK**
+Result displayed in app: 🔴 **Train #6080 Meenagaya - In 23 min ⚠️ IMMEDIATE RISK**
 
 <img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/rainbow.gif" width="100%">
 
@@ -433,7 +433,7 @@ pip3 --version
 ```
 
 <details open>
-<summary><b>Step 1 — Clone the repository</b></summary>
+<summary><b>Step 1 - Clone the repository</b></summary>
 
 ```bash
 git clone https://github.com/PabasaraIlankoon/elevision-app.git
@@ -442,7 +442,7 @@ cd elevision-app
 </details>
 
 <details>
-<summary><b>Step 2 — Firebase setup</b></summary>
+<summary><b>Step 2 - Firebase setup</b></summary>
 
 ```bash
 # 1. Create project at console.firebase.google.com
@@ -466,7 +466,7 @@ service cloud.firestore {
 </details>
 
 <details>
-<summary><b>Step 3 — Flutter mobile app</b></summary>
+<summary><b>Step 3 - Flutter mobile app</b></summary>
 
 ```bash
 cd mobile_app
@@ -476,7 +476,7 @@ flutter run
 </details>
 
 <details>
-<summary><b>Step 4 — Raspberry Pi setup</b></summary>
+<summary><b>Step 4 - Raspberry Pi setup</b></summary>
 
 ```bash
 # SSH into your Pi
@@ -494,7 +494,7 @@ python3 security.py
 </details>
 
 <details>
-<summary><b>Step 5 — Auto-start on boot</b></summary>
+<summary><b>Step 5 - Auto-start on boot</b></summary>
 
 ```bash
 sudo nano /etc/systemd/system/elevision.service
@@ -613,14 +613,14 @@ elevision/
 
 ## 🔮 Future Roadmap
 
-- [ ] LoRa mesh network — device-to-device communication without internet
+- [ ] LoRa mesh network - device-to-device communication without internet
 - [ ] Real GPS tracking on trains via ESP32 + Neo-6M module
-- [ ] Multi-species detection — leopards, wild boar near tracks
-- [ ] Drone integration — aerial surveillance for large corridors
-- [ ] Sri Lanka Railways API — live train position data
-- [ ] Web dashboard — for railway control room operators
-- [ ] Thermal camera — improved night detection accuracy
-- [ ] Solar power — fully off-grid deployment
+- [ ] Multi-species detection - leopards, wild boar near tracks
+- [ ] Drone integration - aerial surveillance for large corridors
+- [ ] Sri Lanka Railways API - live train position data
+- [ ] Web dashboard - for railway control room operators
+- [ ] Thermal camera - improved night detection accuracy
+- [ ] Solar power - fully off-grid deployment
 
 ## 👥 Team
 
@@ -634,17 +634,17 @@ elevision/
 
 ## 📄 License
 
-MIT License — Copyright (c) 2026 Elevision Team
+MIT License - Copyright (c) 2026 Elevision Team
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so.
 
 ## 🙏 Acknowledgements
 
-- Sri Lanka Railways — for track layout and schedule data
-- Ultralytics — for the YOLOv8 model framework
-- OpenStreetMap — for map tile data
-- Firebase / Google — for cloud infrastructure
-- Department of Wildlife Conservation, Sri Lanka — for elephant corridor maps
+- Sri Lanka Railways - for track layout and schedule data
+- Ultralytics - for the YOLOv8 model framework
+- OpenStreetMap - for map tile data
+- Firebase / Google - for cloud infrastructure
+- Department of Wildlife Conservation, Sri Lanka - for elephant corridor maps
 
 <div align="center">
 
