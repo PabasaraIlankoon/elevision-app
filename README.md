@@ -300,7 +300,7 @@ flowchart TD
 | Frames analysed | 1 per second |
 | Average confidence | 94% |
 | False positive rate | < 3% |
-| Detection range | Up to 15m |
+| Detection range | Up to 75m |
 
 <img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/rainbow.gif" width="100%">
 
@@ -394,7 +394,17 @@ flowchart LR
 
 <img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/rainbow.gif" width="100%">
 
-```
+## 🚂 Train Schedule System
+
+Elevision ships with **5 high-risk trains** pre-loaded with their full stop schedules across known elephant crossing zones. When an alert fires, the Train Risk Engine checks every train's timetable against the alert location and current time, then surfaces the ones approaching within the danger window.
+
+**Top high-risk trains:**
+
+| Train | Route | Risk |
+|---|---|---|
+| 6080 · Meenagaya | Colombo → Trincomalee | 🔴 Very High |
+| 6079 · Meenagaya | Trincomalee → Colombo | 🔴 Very High |
+
 **Other scheduled services:**
 
 | Train | Route | Risk |
